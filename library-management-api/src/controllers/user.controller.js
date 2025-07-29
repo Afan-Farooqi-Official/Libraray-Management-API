@@ -54,7 +54,7 @@ const registerUser = asyncHandler(async (req, res) => {
     You need to protect the [0] index too. so we used avatar?.[0]?*/
 
     //Check if we get url of images
-    const avatarLocalPath = req.files?.avatar?.path;
+    const avatarLocalPath = req.files?.avatar?.[0]?.path;
     console.log("avatarurl", avatarLocalPath);
 
     let coverImageLocalPath;
@@ -72,12 +72,12 @@ const registerUser = asyncHandler(async (req, res) => {
     }
 
     //Upload this files to cloundinary
-    const avatar = await uploadOnCloudinary(avatarLocalPath);
+    const avatarurl = await uploadOnCloudinary(avatarLocalPath);
     const coverImage = await uploadOnCloudinary(coverImageLocalPath);
 
-    console.log("cloudinaryAvatar: ", avatar);
+    console.log("cloudinaryAvatar: ", avatarurl);
     console.log("cloudinaryCoverImage: ", coverImage);
-    if (!avatar) {
+    if (!avatarurl) {
         throw new ApiError(500, "Avatar upload to Cloudinary failed");
     }
 
@@ -85,7 +85,7 @@ const registerUser = asyncHandler(async (req, res) => {
     const user = await User.create({
         fullName,
         role,
-        avatar: avatar.url,
+        avatar: avatarurl,
         coverImage: coverImage?.url || "",
         email,
         password,
