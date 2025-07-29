@@ -30,7 +30,7 @@ const generateAccessAndRefreshTokens = async (userId) => {
 //Register
 const registerUser = asyncHandler(async (req, res) => {
     const { userName, email, fullName, role, password } = req.body;
-    console.log("email: ", email);
+    // console.log("email: ", email);
 
     //Check validation - having data or empty
     if (
@@ -55,7 +55,7 @@ const registerUser = asyncHandler(async (req, res) => {
 
     //Check if we get url of images
     const avatarLocalPath = req.files?.avatar?.[0]?.path;
-    console.log("avatarurl", avatarLocalPath);
+    // console.log("avatarurl", avatarLocalPath);
 
     let coverImageLocalPath;
     if (
@@ -64,7 +64,7 @@ const registerUser = asyncHandler(async (req, res) => {
         req.files.coverImage.length > 0
     ) {
         coverImageLocalPath = req.files?.avatar[0]?.path;
-        console.log("cover image", coverImageLocalPath);
+        // console.log("cover image", coverImageLocalPath);
     }
 
     if (!avatarLocalPath) {
@@ -75,8 +75,8 @@ const registerUser = asyncHandler(async (req, res) => {
     const avatarurl = await uploadOnCloudinary(avatarLocalPath);
     const coverImage = await uploadOnCloudinary(coverImageLocalPath);
 
-    console.log("cloudinaryAvatar: ", avatarurl);
-    console.log("cloudinaryCoverImage: ", coverImage);
+    // console.log("cloudinaryAvatar: ", avatarurl);
+    // console.log("cloudinaryCoverImage: ", coverImage);
     if (!avatarurl) {
         throw new ApiError(500, "Avatar upload to Cloudinary failed");
     }
@@ -110,6 +110,7 @@ const registerUser = asyncHandler(async (req, res) => {
 //Login
 const loginUser = asyncHandler(async (req, res) => {
     const { userName, email, password } = req.body;
+    // console.log("userName: ", userName);
 
     //Check is fields empty?
     if (!userName && !email) {
@@ -132,11 +133,11 @@ const loginUser = asyncHandler(async (req, res) => {
     }
 
     //Generate Refresh and Access Token
-    const { refreshToken, accessToken } =
-        await req.generateAccessAndRefreshTokens(user._id);
-    generateAccessAndRefreshTokens();
+    const { refreshToken, accessToken } = await generateAccessAndRefreshTokens(
+        user._id
+    );
 
-    const loggedInUser = await User.findById(user._id).some(
+    const loggedInUser = await User.findById(user._id).select(
         "-password -refreshToken"
     );
 
@@ -152,13 +153,15 @@ const loginUser = asyncHandler(async (req, res) => {
         .cookie("accessToken", accessToken, options)
         .cookie("refreshToken", refreshToken, options)
         .json(
-            200,
-            {
-                user: loggedInUser,
-                accessToken,
-                refreshToken,
-            },
-            "User logged In Successfully"
+            new ApiResponse(
+                200,
+                {
+                    user: loggedInUser,
+                    accessToken,
+                    refreshToken,
+                },
+                "User logged In Successfully"
+            )
         );
 });
 
