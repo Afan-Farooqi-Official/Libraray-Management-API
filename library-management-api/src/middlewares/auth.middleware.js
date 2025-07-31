@@ -17,6 +17,8 @@ export const verifyJWT = asyncHandler(async (req, _, next) => {
         const user = await User.findById(decodedToken?._id).select(
             "-password -refreshToken"
         );
+
+        // console.log("user role from DB:", user.role);
         if (!user) {
             throw new ApiError(401, "Invalid Access token");
         }
@@ -25,5 +27,16 @@ export const verifyJWT = asyncHandler(async (req, _, next) => {
         next();
     } catch (error) {
         throw new ApiError(401, error?.message || "Invalid access token");
+    }
+});
+
+export const isAdmin = asyncHandler(async (req, res, next) => {
+    try {
+        if (req.user?.role.toLowerCase() !== "admin") {
+            throw new ApiError(403, "Access denied. Admins only!");
+        }
+        next();
+    } catch (error) {
+        throw new ApiError(500, error?.message);
     }
 });
