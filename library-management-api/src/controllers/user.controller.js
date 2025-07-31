@@ -1,6 +1,9 @@
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import {
+    uploadOnCloudinary,
+    deleteFromCloudinary,
+} from "../utils/cloudinary.js";
 import { User } from "../models/user.model.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
@@ -251,24 +254,59 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
 
 //Update avatar
 const updateUserAvatar = asyncHandler(async (req, res) => {
+    const user = await User.findById(req.user?._id);
+    if (!user) {
+        throw new ApiError(404, "user not found");
+    }
     //First check if avatar is not missing
-    const avatarLocalPath = req.files?.path;
+    const avatarLocalPath = req.file?.path;
     if (!avatarLocalPath) {
         throw new ApiError(400, "avatar is missing");
     }
 
+    //Delete previous avatar before uploading newOne
+    if (user.avatar) {
+        // Extract public_id from URL (assuming URL format from Cloudinary)
+        const parts = user.avatar.split("/");
+        const filename = parts[parts.length - 1]; // e.g., avatar123.png
+        const publicId = filename.split(".")[0]; // e.g., avatar123
+
+        await deleteFromCloudinary(publicId);
+    }
+
+    /*
+For example, if the avatar URL is:
+    
+https://res.cloudinary.com/demo/image/upload/v123456/avatar123.png
+Then after split("/"), you get:
+
+[
+  "https:", "", "res.cloudinary.com", "demo", "image",
+  "upload", "v123456", "avatar123.png"
+]
+ const filename = parts[parts.length - 1];
+Gets the last part of the array, which is the actual file name:
+
+"avatar123.png"
+ const publicId = filename.split(".")[0];
+Splits the filename by . to remove the file extension and get only the public_id:
+
+"avatar123"
+This publicId is what Cloudinary uses to identify and delete the image. 
+*/
+
     //Uplaod on cloudinary
-    const updateUserAvatar = uploadOnCloudinary(avatarLocalPath);
-    if (!updateUserAvatar) {
-        throw new ApiError(400, "something went wrong, while uploading avatar");
+    const uploadedAvatar = await uploadOnCloudinary(avatarLocalPath);
+    if (!uploadedAvatar) {
+        throw new ApiError(500, "something went wrong, while uploading avatar");
     }
 
     //Update in user
-    const user = await User.findByIdAndUpdate(
-        req.user?.id,
+    const updateUser = await User.findByIdAndUpdate(
+        req.user?._id,
         {
             $set: {
-                avatar: avatar.url,
+                avatar: uploadedAvatar.url,
             },
         },
         { new: true }
@@ -277,20 +315,43 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
     //return res
     return res
         .status(200)
-        .json(new ApiResponse(200, "Avatar image updated successfully"));
+        .json(
+            new ApiResponse(
+                200,
+                updateUser,
+                "Avatar image updated successfully"
+            )
+        );
 });
 
 //Update coverImage
 const updateUserCoverImage = asyncHandler(async (req, res) => {
-    //First check if avatar is not missing
-    const coverImageLocalPath = req.files?.path;
+    const user = await User.findById(req.user._id);
+    if (!user) {
+        throw new ApiError(404, "user not found");
+    }
+
+    const coverImageLocalPath = req.file?.path;
+    // If no file was uploaded, just return a message
     if (!coverImageLocalPath) {
-        throw new ApiError(400, "cover image is missing");
+        return res
+            .status(400)
+            .json(new ApiResponse(400, null, "No cover image uploaded"));
+    }
+
+    //Delete previous avatar before uploading newOne
+    if (user.coverImage) {
+        // Extract public_id from URL (assuming URL format from Cloudinary)
+        const parts = user.coverImage.split("/");
+        const filename = parts[parts.length - 1]; // e.g., avatar123.png
+        const publicId = filename.split(".")[0]; // e.g., avatar123
+
+        await deleteFromCloudinary(publicId);
     }
 
     //Uplaod on cloudinary
-    const updateUserCoverImage = uploadOnCloudinary(coverImageLocalPath);
-    if (!updateUserCoverImage) {
+    const updateCoverImage = uploadOnCloudinary(coverImageLocalPath);
+    if (!updateCoverImage) {
         throw new ApiError(
             400,
             "something went wrong, while uploading cover image"
@@ -298,11 +359,11 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
     }
 
     //Update in user
-    const user = await User.findByIdAndUpdate(
+    const updatedUser = await User.findByIdAndUpdate(
         req.user?.id,
         {
             $set: {
-                coverImage: coverImage.url,
+                coverImage: updateCoverImage.url,
             },
         },
         { new: true }
@@ -311,7 +372,13 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
     //return res
     return res
         .status(200)
-        .json(new ApiResponse(200, "cover image updated successfully"));
+        .json(
+            new ApiResponse(
+                200,
+                updatedUser,
+                "cover image updated successfully"
+            )
+        );
 });
 
 export {
